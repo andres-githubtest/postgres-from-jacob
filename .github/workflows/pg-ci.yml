@@ -753,6 +753,9 @@ jobs:
       PG_TEST_USE_UNIX_SOCKETS: 1
       PG_REGRESS_SOCK_DIR: 'd:\pgsock'
       TAR: "c:/windows/system32/tar.exe"
+      CPAN_CACHE_DIRS: |
+        C:\Strawberry\cpan\sources
+        C:\Strawberry\cpan\build
 
       MESON_FEATURES: >-
         -Dauto_features=disabled
@@ -844,6 +847,17 @@ jobs:
           # Don't prefer mingw's perl
           echo C:/Strawberry/perl/bin >> "$GITHUB_PATH"
 
+      - &windows_cpan_restore_step
+        name: Restore CPAN cache
+        id: cpan_restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.CPAN_CACHE_DIRS }}
+          key: cpan-${{ github.job }}-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            cpan-${{ github.job }}-${{ github.ref_name }}-
+            cpan-${{ github.job }}-
+
       - name: Install dependencies
         shell: pwsh
         run: |
@@ -868,6 +882,13 @@ jobs:
           perl -mIPC::Run -e 1
           if (!$?) { throw 'cmdfail' }
           echo ::endgroup::
+
+      - &windows_cpan_save_step
+        name: Save CPAN cache
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.CPAN_CACHE_DIRS }}
+          key: ${{ steps.cpan_restore.outputs.cache-primary-key }}
 
       - &window_setup_hosts_step
         name: Setup hosts file
@@ -931,6 +952,9 @@ jobs:
       PG_TEST_USE_UNIX_SOCKETS: 1
       PG_REGRESS_SOCK_DIR: 'd:\pgsock'
       TAR: "c:/windows/system32/tar.exe"
+      CPAN_CACHE_DIRS: |
+        D:\msys64\home\runneradmin\.cpan-w64\sources
+        D:\msys64\home\runneradmin\.cpan-w64\build
 
       MSYS: winjitdebug
       CHERE_INVOKING: 1
@@ -992,6 +1016,7 @@ jobs:
             ${MINGW_PACKAGE_PREFIX}-zlib
 
       - *nix_sysinfo_step
+      - *windows_cpan_restore_step
 
       - name: Install additional dependencies
         run: |
@@ -1002,6 +1027,8 @@ jobs:
           (echo; echo o conf recommends_policy 0; echo notest install NJM/IPC-Run-20250809.0.tar.gz) | cpan
           perl -mIPC::Run -e 1
           echo ::endgroup::
+
+      - *windows_cpan_save_step
 
       - name: Setup socket directory
         shell: cmd
